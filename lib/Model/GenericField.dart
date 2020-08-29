@@ -1,19 +1,27 @@
 import 'package:dynamic_form_generator/Model/DartConstraint.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 
-abstract class GenericField extends Widget{
+
+abstract class GenericField extends StatefulWidget {
+
+}
+
+abstract class GenericFieldState extends State<GenericField> {
+
   String id;
-  Widget widget ;
+  Widget customWidget ;
   String title ;
   bool showDartConstraintAlerts;
   bool showJsConstraintAlerts;
-  dynamic placeHolder ;
+  dynamic placeHolder ; //to remove
   dynamic value;
 
   bool translateTitle = false;
   bool translateError = false;
   bool checkConstraintsOnDataChange = false ;
-  bool Function(String)  translate;
+  String Function(String)  translate;
+  Function onUpdate;
 
   List<Constraint> _constraints = new List<Constraint>();
 
@@ -29,23 +37,29 @@ abstract class GenericField extends Widget{
   //Constraints
   void loadSupportedDartConstrains();
   void addConstraint(Map<String,dynamic> map){
-    var name = map["name"];
-    if(supportedConstraints.containsKey(name)){
-      map["validate"] = supportedConstraints[name] ;
-      _constraints.add(Constraint(map["name"], map["error"], map["validate"],map["arg"]));
+    var function = map["function"];
+    if(supportedConstraints.containsKey(function)){
+      _constraints.add(Constraint(map["name"], map["error"], supportedConstraints[function]));
     }
 
   } //params Constraint
 
-
+  void loadDartConstraintFromJson(Map<String,dynamic> map){
+    if(map.containsKey("dart_constraints")){
+      var constraints = map["dart_constraints"];
+      for(var constraint in constraints){
+        addConstraint(constraint);
+      }
+    }
+  }
   List<dynamic> getArgs(Constraint constraint);
   void loadJsConstraints(); //File Js
 
-  bool checkDartConstraints(){
+  String checkDartConstraints(){
     for(Constraint constraint in _constraints){
-      if(!constraint.validate(getArgs(constraint))) return false;
+      if(!constraint.validate(getArgs(constraint))) return constraint.error;
     }
-    return true;
+    return null;
   }
 
   bool checkJsConstraints();
@@ -55,10 +69,11 @@ abstract class GenericField extends Widget{
 
   // TO and FROM Json
   void initFromJson(Map<String,dynamic> map){
-   id = map["id"];
-   title = map.containsKey("title")? map["title"]:null;
-   placeHolder = map.containsKey("placeHolder")? map["placeHolder"]:null;
-   value = map.containsKey("value")? map["value"]:null;
+    id = map["id"];
+    title = map.containsKey("title")? map["title"]:"";
+    placeHolder = map.containsKey("placeHolder")? map["placeHolder"]:null;
+    value = map.containsKey("value")? map["value"]:null;
+    loadDartConstraintFromJson(map);
   }
 
   Map<String,dynamic> saveToJson(){
@@ -71,13 +86,18 @@ abstract class GenericField extends Widget{
   Widget getPropertiesWidget();
   dynamic propertiesToJson();
 
-  @override
-  Element createElement() {
-    return widget.createElement();
-  }
-
-
-    Map<String,Function> supportedConstraints = {
-    "BOE":(List<dynamic> args) => args[0] >= args[1] ,
+  Map<String,Function> supportedConstraints = {
+    "BOE":(List<dynamic> args) => args[0] >= args[1] as bool,
   };
+  Widget getDefaultLayout(Widget widget){
+    return Card(
+      child: Container(padding: EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+        Text(title,style: TextStyle(fontSize: 22),),
+        widget,
+      ],),),
+    );
+  }
 }
